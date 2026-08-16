@@ -1,0 +1,1809 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <title>LogisticsRoute Pro - Saudi Arabia Heavy Truck & Fuel Calculator</title>
+	<!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚚</text></svg>">
+    <!-- Tailwind CSS for modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for logistics and mapping icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Leaflet CSS for OpenStreetMap -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        #map { width: 100%; height: 100%; min-height: 360px; border-radius: 0.75rem; z-index: 1; background-color: #f1f5f9; overflow: hidden; position: relative; }
+        .leaflet-container { width: 100% !important; height: 100% !important; border-radius: 0.75rem; overflow: hidden; z-index: 1; }
+        .leaflet-tile-pane { filter: brightness(1) contrast(1.02); }
+        .leaflet-popup-content-wrapper { border-radius: 1rem; padding: 0; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); max-width: 360px; }
+        .leaflet-popup-content { margin: 0; line-height: 1.5; word-break: break-word; overflow-wrap: break-word; width: auto !important; }
+        .custom-leaflet-popup .leaflet-popup-content-wrapper { min-width: 180px; max-width: 260px; width: auto; }
+        .custom-leaflet-popup .leaflet-popup-content { width: 100% !important; margin: 0; box-sizing: border-box; }
+        /* Custom styled permanent map label tooltips */
+        .custom-map-label {
+            background-color: rgba(255, 255, 255, 0.95) !important;
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 0.5rem !important;
+            color: #0f172a !important;
+            font-weight: 600 !important;
+            font-size: 11px !important;
+            padding: 2px 8px !important;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+            white-space: nowrap !important;
+        }
+        .custom-map-label::before {
+            border-top-color: rgba(255, 255, 255, 0.95) !important;
+        }
+        .waypoint-row.dragging {
+            opacity: 0.4;
+            transform: scale(0.98);
+        }
+    </style>
+</head>
+<body class="h-screen overflow-hidden bg-slate-100 text-slate-800 flex flex-col">
+
+    <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shadow-sm shrink-0">
+        <div class="flex items-center space-x-3">
+            <div class="bg-blue-600 p-2.5 rounded-xl text-white shadow-lg shadow-blue-600/20">
+                <i class="fa-solid fa-truck text-xl"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold tracking-tight text-slate-900">LogisticsRoute Pro <span class="text-xs bg-emerald-100 text-emerald-700 px-2.5 py-0.5 rounded-full ml-2 border border-emerald-200 font-semibold">Truck Edition KSA</span></h1>
+                <p class="text-xs text-slate-500">Fleet Road Routing & Fuel System</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-3">
+            <button onclick="app.toggleSidebar()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2 rounded-xl text-sm font-medium transition flex items-center space-x-2 border border-slate-300 shadow-sm" title="Show or Hide Control Panel" aria-label="Toggle Control Panel">
+                <i class="fa-solid fa-sliders text-blue-600"></i>
+                <span class="hidden sm:inline" id="togglePanelText">Hide Panel</span>
+            </button>
+            <button onclick="app.openSettingsModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2 rounded-xl text-sm font-medium transition flex items-center space-x-2 border border-slate-300 shadow-sm" title="Settings" aria-label="Open Settings">
+                <i class="fa-solid fa-gear text-slate-600"></i>
+                <span class="hidden sm:inline">Settings</span>
+            </button>
+            <button id="saveKmlHeaderBtn" onclick="app.saveKmlFile()" class="bg-amber-600 hover:bg-amber-500 text-white px-3.5 py-2 rounded-xl text-sm font-medium transition flex items-center space-x-2 shadow-sm hidden" title="Export route and waypoints to Google Earth KML" aria-label="Save as KML file">
+                <i class="fa-solid fa-earth-americas text-lg"></i>
+                <span class="hidden sm:inline">Save KML</span>
+            </button>
+            <button id="copyGmapsHeaderBtn" onclick="app.copyGoogleMapsLink()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3.5 py-2 rounded-xl text-sm font-medium transition flex items-center space-x-2 shadow-sm" title="Copy Google Maps direction link with waypoints" aria-label="Copy Google Maps link">
+                <i class="fa-solid fa-link text-lg"></i>
+                <span class="hidden sm:inline">Copy GMaps Link</span>
+            </button>
+            <button id="shareWhatsappHeaderBtn" onclick="app.shareToWhatsApp()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-xl text-sm font-medium transition flex items-center space-x-2 shadow-sm" aria-label="Share route summary via WhatsApp">
+                <i class="fa-brands fa-whatsapp text-lg"></i>
+                <span class="hidden sm:inline">Share WhatsApp</span>
+            </button>
+            <button onclick="app.resetForm()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2 rounded-xl text-sm font-medium transition flex items-center space-x-2 border border-slate-300 shadow-sm" aria-label="Reset route calculator parameters">
+                <i class="fa-solid fa-rotate-right text-amber-600"></i>
+                <span class="hidden sm:inline">Reset</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 flex flex-col lg:flex-row overflow-hidden p-4 lg:p-6 gap-6 min-h-0">
+        
+        <!-- Left Panel: Form Controls & Waypoints -->
+        <section id="leftSidebar" class="w-full lg:w-[480px] flex flex-col bg-white border border-slate-200 rounded-2xl shadow-xl overflow-y-auto shrink-0 transition-all duration-300">
+            <div class="p-5 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-20">
+                <h2 class="font-semibold text-sm sm:text-base flex items-center space-x-2 text-slate-800">
+                    <i class="fa-solid fa-route text-blue-600"></i>
+                    <span>Truck Route Coordinates & Parameters</span>
+                </h2>
+                <div class="flex items-center space-x-1.5">
+                    <button onclick="app.saveProfileToFile()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 p-2 rounded-lg text-xs font-semibold transition border border-slate-300 flex items-center space-x-1" title="Save profile parameters to JSON file" aria-label="Save profile to file">
+                        <i class="fa-solid fa-download text-blue-600"></i>
+                    </button>
+                    <button onclick="document.getElementById('loadProfileFileInput').click()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 p-2 rounded-lg text-xs font-semibold transition border border-slate-300 flex items-center space-x-1" title="Load profile parameters from JSON file" aria-label="Load profile from file">
+                        <i class="fa-solid fa-upload text-emerald-600"></i>
+                    </button>
+                    <input type="file" id="loadProfileFileInput" accept=".json" onchange="app.loadProfileFromFile(event)" class="hidden">
+                </div>
+            </div>
+
+            <div class="p-5 space-y-5 flex-1">
+                <!-- Location Inputs -->
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Starting Point (Lat, Lon)</label>
+                    </div>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-blue-600">
+                            <i class="fa-solid fa-circle-dot"></i>
+                        </span>
+                        <input type="text" id="startLocation" value="" placeholder="e.g. 24.7136, 46.6753" class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-4 py-3 text-sm font-mono text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white transition" aria-label="Starting location coordinates in latitude and longitude">
+                    </div>
+                </div>
+
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Destination Stops (Drag to re-order)</label>
+                        <button id="addWaypointBtn" onclick="app.addWaypoint()" class="text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center space-x-1" aria-label="Add destination stop waypoint">
+                            <i class="fa-solid fa-plus"></i>
+                            <span>Add Stop</span>
+                        </button>
+                    </div>
+                    <div id="waypointsContainer" class="space-y-2.5">
+                        <!-- Dynamically inserted draggable waypoints -->
+                    </div>
+                </div>
+
+                <!-- Return Point Input -->
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Return Point (Lat, Lon) - Optional</label>
+                        <span class="text-[11px] text-slate-400">Leave empty for one-way</span>
+                    </div>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-purple-600">
+                            <i class="fa-solid fa-house-chimney"></i>
+                        </span>
+                        <input type="text" id="returnLocation" value="" placeholder="e.g. 24.7136, 46.6753 (Optional)" class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-4 py-3 text-sm font-mono text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white transition" aria-label="Return point coordinates in latitude and longitude">
+                    </div>
+                </div>
+
+                <hr class="border-slate-200">
+
+                <!-- Truck Load Weight Selector -->
+                <div class="space-y-2">
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Truck Load Weight Status</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-blue-600">
+                            <i class="fa-solid fa-weight-scale"></i>
+                        </span>
+                        <select id="truckLoadWeight" onchange="app.handleLoadWeightChange()" class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white transition cursor-pointer" aria-label="Truck load weight status selector">
+                            <option value="empty">Empty Truck (0 tons) - Best Efficiency</option>
+                            <option value="partial">Partial Load (15 tons) - Standard Efficiency</option>
+                            <option value="full" selected>Full Load (25 tons) - Heavy Logistics</option>
+                            <option value="overload">Overloaded (28 tons) - Reduced Efficiency & Speed</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Fuel Parameters Group 1: Fuel (L) and Extra Fuel (L) -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-2">
+                        <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 truncate" title="Current Fuel in Tank (L)">Available Fuel (L)</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-emerald-600">
+                                <i class="fa-solid fa-gas-pump"></i>
+                            </span>
+                            <input type="number" id="currentFuel" value="0" min="0" step="10" class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-2 py-2.5 text-sm text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white transition" placeholder="e.g. 100" aria-label="Current fuel level in liters">
+                        </div>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 truncate" title="Auxiliary / Compressor / Idling Fuel (L)">Extra Fuel (L)</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-teal-600">
+                                <i class="fa-solid fa-oil-can"></i>
+                            </span>
+                            <input type="number" id="extraFuel" value="0" min="0" step="5" class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-2 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white transition" placeholder="e.g. 50" aria-label="Extra fuel for auxiliary equipment or idling in liters">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fuel Parameters Group 2: Efficiency (km/L) and Price/L -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-2">
+                        <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 truncate" title="Fuel Efficiency (km/L)">Eff. (km/L)</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-emerald-500">
+                                <i class="fa-solid fa-leaf"></i>
+                            </span>
+                            <input type="number" id="fuelEfficiency" value="2.0" min="0.1" step="0.1" class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-2 py-2.5 text-sm text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white transition" aria-label="Fuel efficiency in km per liter">
+                        </div>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 truncate" title="Fuel Price (SAR/L)">Price/L (SAR)</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-emerald-700">
+                                <i class="fa-solid fa-coins"></i>
+                            </span>
+                            <input type="number" id="fuelPrice" value="1.79" min="0.01" step="0.01" class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-2 py-2.5 text-sm text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white transition" aria-label="Fuel price per liter in SAR">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Vehicle & Operational Parameters -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-2">
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Avg. Speed (km/h)</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-indigo-600">
+                                <i class="fa-solid fa-gauge"></i>
+                            </span>
+                            <input type="number" id="avgSpeed" value="75" min="10" step="1" class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white transition" aria-label="Average truck speed in km per hour">
+                        </div>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Delay on Road (hrs)</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-rose-600">
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                            </span>
+                            <input type="number" id="delayHours" value="0" min="0" step="0.25" class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white transition" placeholder="e.g. 1.5" aria-label="Expected road delays in hours">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Rest Parameters -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-2">
+                        <label id="restIntervalLabel" class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Rest Interval (km)</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-blue-500">
+                                <i id="restIntervalIcon" class="fa-solid fa-road"></i>
+                            </span>
+                            <input type="number" id="restIntervalKm" value="500" min="10" step="10" class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white transition" placeholder="e.g. 500" aria-label="Rest interval in kilometers">
+                        </div>
+                    </div>
+                    <div class="space-y-2">
+                        <label id="restingHoursLabel" class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Rest Hours / Interval</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-purple-600">
+                                <i id="restingHoursIcon" class="fa-solid fa-mug-hot"></i>
+                            </span>
+                            <input type="text" id="restingHours" value="1.0" class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white transition" placeholder="e.g. 1.0" aria-label="Rest duration per interval in hours">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TGA Compliance Toggle Switch -->
+                <div class="bg-blue-50/70 border border-blue-200 p-4 rounded-2xl flex items-center justify-between">
+                    <div class="space-y-0.5">
+                        <div class="text-xs font-bold text-blue-900 flex items-center space-x-1.5">
+                            <i class="fa-solid fa-shield-halved text-blue-600"></i>
+                            <span>Saudi TGA Compliance Mode</span>
+                        </div>
+                        <p class="text-[11px] text-blue-700">Enforces strict 4.5h driving caps & mandatory rest breaks.</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="tgaComplianceToggle" onchange="app.toggleTgaCompliance()" class="sr-only peer" aria-label="Toggle Saudi TGA Compliance Mode">
+                        <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                </div>
+
+                <!-- Departure Date & Time Input -->
+                <div class="space-y-2">
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Departure Date & Time</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-blue-600">
+                            <i class="fa-regular fa-calendar-days"></i>
+                        </span>
+                        <input type="datetime-local" id="departureDateTime" class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white transition font-mono" aria-label="Planned departure date and time">
+                    </div>
+                </div>
+
+                <!-- Calculate Action Button -->
+                <button onclick="app.calculateRoute()" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold py-3.5 rounded-xl shadow-lg shadow-blue-600/25 transition flex items-center justify-center space-x-2" aria-label="Calculate truck road route and fuel consumption">
+                    <i class="fa-solid fa-calculator"></i>
+                    <span>Calculate Truck Road Route & Fuel</span>
+                </button>
+            </div>
+        </section>
+
+        <section class="flex-1 flex flex-col gap-6 h-full min-h-0 overflow-y-auto">
+            <!-- Map Card -->
+            <div class="flex-1 bg-white border border-slate-200 rounded-2xl p-4 shadow-xl min-h-[380px] relative flex flex-col overflow-hidden">
+                <div id="map" class="flex-1 rounded-xl shadow-inner border border-slate-200 overflow-hidden"></div>
+                
+                <!-- Map-Side Coordinate Jump Widget -->
+                <div id="mapPasteWidget" class="absolute top-7 left-[65px] z-[1000] bg-white/95 backdrop-blur-md border border-slate-300 p-3 rounded-lg shadow-lg w-72 sm:w-80 space-y-2.5 transition-all duration-300 hidden">
+                    <div class="flex items-center justify-between text-xs font-bold text-slate-800">
+                        <span class="flex items-center space-x-1.5">
+                            <i class="fa-solid fa-location-crosshairs text-blue-600"></i>
+                            <span>Jump to Coordinates</span>
+                        </span>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-[10px] text-slate-400 font-mono">lat, lon</span>
+                            <button onclick="app.toggleMapPasteWidget()" class="text-slate-400 hover:text-slate-600 p-1 rounded transition" title="Hide Widget" aria-label="Close jump to coordinates widget">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="relative">
+                        <input type="text" id="mapPasteCoordInput" placeholder="e.g. 24.7136, 46.6753" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white transition" aria-label="Latitude and longitude coordinates to jump to on map">
+                    </div>
+                    <button onclick="app.handleMapJumpAction()" class="w-full bg-blue-600 hover:bg-blue-500 text-white py-2 rounded-lg transition text-xs font-semibold shadow-sm flex items-center justify-center space-x-1.5" aria-label="Jump map view to specified coordinates">
+                        <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                        <span>Jump on Map</span>
+                    </button>
+                </div>
+
+                <!-- Floating button to show Jump Widget when hidden -->
+                <button id="showMapPasteBtn" onclick="app.toggleMapPasteWidget()" class="absolute top-7 left-[65px] z-[1000] bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 w-[34px] h-[34px] rounded shadow-md transition items-center justify-center text-sm flex" title="Jump to Coordinates" aria-label="Open jump to coordinates widget">
+                    <i class="fa-solid fa-location-crosshairs text-blue-600"></i>
+                </button>
+
+                <!-- Map Style Selector & Click Toggle -->
+                <div class="absolute bottom-6 left-6 z-[1000] bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl shadow-lg p-1.5 flex flex-wrap items-center gap-2">
+                    <select id="mapStyleSelect" onchange="app.changeMapStyle(this.value)" class="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 font-medium text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer" aria-label="Select base map style">
+                        <option value="esri">🌐 English Streets (Esri)</option>
+                        <option value="voyager">🏙️ Detailed Streets (Voyager)</option>
+                        <option value="light">🗺️ Light Map (Carto)</option>
+                        <option value="osm" selected>📍 Standard OSM (Local)</option>
+                        <option value="hybrid">🛰️ Hybrid English (Esri)</option>
+                    </select>
+                    <button id="mapClickToggleBtn" onclick="app.toggleMapClickMode()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-300 rounded-lg px-2.5 py-1.5 font-semibold transition flex items-center space-x-1.5" aria-label="Toggle set location by clicking on map">
+                        <i class="fa-solid fa-hand-pointer"></i>
+                        <span id="mapClickToggleText">Click to Set: OFF</span>
+                    </button>
+                </div>
+                <!-- Floating Legend -->
+                <div class="absolute top-7 right-6 bg-white/95 backdrop-blur-md border border-slate-200 p-3 rounded-xl shadow-lg text-xs space-y-1.5 z-[1000] hidden sm:block">
+                    <div class="font-semibold text-slate-700 mb-1">Truck Fuel Status</div>
+                    <div class="flex items-center space-x-2">
+                        <span class="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span>
+                        <span class="text-slate-600">Sufficient Fuel</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="w-3 h-3 rounded-full bg-rose-500 inline-block"></span>
+                        <span class="text-slate-600">Refuel Needed</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Separator & Toggle Bar for Summary Section -->
+            <div class="flex items-center justify-center shrink-0 -my-2 relative z-10">
+                <div class="w-full border-t border-slate-200 absolute inset-0 my-auto"></div>
+                <button id="toggleSummaryBtn" onclick="app.toggleSummarySection()" class="relative z-10 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border border-slate-300 px-4 py-1.5 rounded-full text-xs font-semibold shadow-sm transition flex items-center space-x-2" title="Toggle Summary Panel Visibility" aria-label="Toggle Summary Panel Visibility">
+                    <i id="toggleSummaryIcon" class="fa-solid fa-chevron-up text-blue-600 transition-transform duration-200"></i>
+                    <span id="toggleSummaryText">Hide Summary</span>
+                </button>
+            </div>
+
+            <!-- Summary Section Wrapper -->
+            <div id="summarySection" class="flex flex-col gap-6 shrink-0 transition-all duration-300">
+                <!-- Analytics Summary Cards -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 shrink-0">
+                    <div class="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm">
+                        <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1">Total Distance</div>
+                        <div id="statDistance" class="text-xl md:text-2xl font-bold text-slate-800">0.00 km</div>
+                    </div>
+                    <div class="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm">
+                        <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1">Fuel Required</div>
+                        <div class="flex items-baseline space-x-1.5 flex-wrap">
+                            <div id="statFuelRequired" class="text-xl md:text-2xl font-bold text-emerald-600">0.00 L</div>
+                            <div id="statFuelCost" class="text-xs font-semibold text-slate-400 hidden">(SAR 0.00)</div>
+                        </div>
+                    </div>
+                    <div class="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm">
+                        <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1">Travel Duration</div>
+                        <div id="statTravelTime" class="text-xl md:text-2xl font-bold text-blue-600">0h 0m</div>
+                    </div>
+                    <div class="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm">
+                        <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1">Expected Arrival</div>
+                        <div id="statArrivalTime" class="text-sm font-bold text-indigo-600 mt-1 truncate">--</div>
+                    </div>
+                </div>
+                <div class="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm shrink-0">
+                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+                        <div>
+                            <div class="text-slate-500 text-xs font-semibold uppercase tracking-wider">Mission Summary</div>
+                            <div id="summaryRouteStatus" class="text-sm font-semibold text-slate-700 mt-1">Pending calculation</div>
+                        </div>
+                        <div id="statFuelStatus" class="text-sm font-bold text-slate-600">Fuel status pending</div>
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                            <div class="text-[10px] uppercase tracking-wider text-slate-500">Driving</div>
+                            <div id="summaryDriving" class="font-bold text-slate-800 mt-1">0h 0m</div>
+                        </div>
+                        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                            <div class="text-[10px] uppercase tracking-wider text-slate-500">Mandatory Breaks</div>
+                            <div id="summaryBreaks" class="font-bold text-slate-800 mt-1">0h 0m</div>
+                        </div>
+                        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                            <div class="text-[10px] uppercase tracking-wider text-slate-500">Daily Rest</div>
+                            <div id="summaryDailyRest" class="font-bold text-slate-800 mt-1">0h 0m</div>
+                        </div>
+                        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                            <div class="text-[10px] uppercase tracking-wider text-slate-500">Road Delays</div>
+                            <div id="summaryDelays" class="font-bold text-slate-800 mt-1">0h 0m</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div id="notificationModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[2000] flex items-center justify-center hidden">
+        <div class="bg-white border border-slate-200 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl text-center space-y-4">
+            <div id="modalIcon" class="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mx-auto text-xl">
+                <i class="fa-solid fa-info"></i>
+            </div>
+            <h3 id="modalTitle" class="text-lg font-bold text-slate-900">Notification</h3>
+            <p id="modalMessage" class="text-sm text-slate-600 text-left whitespace-pre-line bg-slate-50 p-3 rounded-xl border border-slate-200 font-mono text-xs max-h-60 overflow-y-auto"></p>
+            <button onclick="app.closeModal()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 rounded-xl transition shadow-md shadow-blue-600/20">Got It</button>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[2000] flex items-center justify-center hidden">
+        <div class="bg-white border border-slate-200 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl space-y-5">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 class="text-lg font-bold text-slate-900 flex items-center space-x-2">
+                    <i class="fa-solid fa-gear text-slate-600"></i>
+                    <span>Application Settings</span>
+                </h3>
+                <button onclick="app.closeSettingsModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg transition" aria-label="Close Settings">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-4">
+                <!-- Live Preview Toggle -->
+                <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl flex items-center justify-between">
+                    <div class="space-y-0.5 pr-3">
+                        <div class="text-sm font-semibold text-slate-800">Live Map Marker Preview</div>
+                        <p class="text-xs text-slate-500">Automatically update start, stop, and return markers on the map as you type coordinates.</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                        <input type="checkbox" id="livePreviewToggle" onchange="app.toggleLivePreviewSetting(this.checked)" class="sr-only peer" aria-label="Toggle live preview markers">
+                        <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                </div>
+
+                <!-- Show/Hide Save KML Button Toggle -->
+                <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl flex items-center justify-between">
+                    <div class="space-y-0.5 pr-3">
+                        <div class="text-sm font-semibold text-slate-800">Show Save KML Button</div>
+                        <p class="text-xs text-slate-500">Display or hide the Save KML export button in the top header toolbar.</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                        <input type="checkbox" id="saveKmlToggle" onchange="app.toggleSaveKmlSetting(this.checked)" class="sr-only peer" aria-label="Toggle Save KML button visibility">
+                        <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                </div>
+
+                <!-- Show/Hide Copy GMaps Link Button Toggle -->
+                <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl flex items-center justify-between">
+                    <div class="space-y-0.5 pr-3">
+                        <div class="text-sm font-semibold text-slate-800">Show Copy GMaps Link Button</div>
+                        <p class="text-xs text-slate-500">Display or hide the Copy GMaps Link button in the top header toolbar.</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                        <input type="checkbox" id="copyGmapsToggle" onchange="app.toggleCopyGmapsSetting(this.checked)" class="sr-only peer" aria-label="Toggle Copy GMaps Link button visibility">
+                        <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                </div>
+
+                <!-- Show/Hide Share WhatsApp Button Toggle -->
+                <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl flex items-center justify-between">
+                    <div class="space-y-0.5 pr-3">
+                        <div class="text-sm font-semibold text-slate-800">Show Share WhatsApp Button</div>
+                        <p class="text-xs text-slate-500">Display or hide the Share WhatsApp button in the top header toolbar.</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                        <input type="checkbox" id="shareWhatsappToggle" onchange="app.toggleShareWhatsappSetting(this.checked)" class="sr-only peer" aria-label="Toggle Share WhatsApp button visibility">
+                        <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                </div>
+            </div>
+
+            <div class="pt-2">
+                <button onclick="app.closeSettingsModal()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 rounded-xl transition shadow-md shadow-blue-600/20">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class LogisticsOpenStreetMapApp {
+            constructor() {
+                this.map = null;
+                this.markers = [];
+                this.clickPopup = null;
+                this.routeLayer = null;
+                this.tileLayers = {};
+                this.currentTileLayer = null;
+                this.mapClickEnabled = false;
+                this.draggedWaypointRow = null;
+                this.livePreviewEnabled = localStorage.getItem('livePreviewEnabled') !== 'false';
+                this.saveKmlVisible = localStorage.getItem('saveKmlVisible') === 'true'; // Hidden by default
+                this.copyGmapsVisible = localStorage.getItem('copyGmapsVisible') !== 'false'; // Shown by default
+                this.shareWhatsappVisible = localStorage.getItem('shareWhatsappVisible') !== 'false'; // Shown by default
+
+                this.initMap();
+                this.initDefaultForm();
+                this.bindInputListeners();
+                this.applyHeaderButtonVisibilities();
+            }
+
+            initMap() {
+                // Initialize map centered on Saudi Arabia
+                this.map = L.map('map', {
+                    zoomControl: true
+                }).setView([24.7136, 46.6753], 6);
+
+                // Disable right-click context menu on map
+                const mapContainer = document.getElementById('map');
+                if (mapContainer) {
+                    mapContainer.addEventListener('contextmenu', (e) => e.preventDefault());
+                }
+
+                // Define tile layers
+                this.tileLayers = {
+                    osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        maxZoom: 19,
+                        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    }),
+                    esri: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+                        maxZoom: 19,
+                        attribution: 'Tiles &copy; Esri'
+                    }),
+                    voyager: L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                        maxZoom: 19,
+                        attribution: '&copy; CARTO'
+                    }),
+                    light: L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                        maxZoom: 19,
+                        attribution: '&copy; CARTO'
+                    }),
+                    hybrid: L.layerGroup([
+                        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                            maxZoom: 19,
+                            attribution: 'Tiles &copy; Esri'
+                        }),
+                        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', {
+                            maxZoom: 19
+                        }),
+                        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+                            maxZoom: 19
+                        })
+                    ])
+                };
+
+                // Add active tile layer from selector or default to standard OSM
+                const styleSelect = document.getElementById('mapStyleSelect');
+                const defaultStyle = styleSelect ? styleSelect.value : 'osm';
+                this.currentTileLayer = this.tileLayers[defaultStyle] || this.tileLayers.osm;
+                this.currentTileLayer.addTo(this.map);
+
+                // Handle map click events when click-to-set mode is active
+                this.map.on('click', (e) => {
+                    if (!this.mapClickEnabled) return;
+                    const lat = e.latlng.lat.toFixed(6);
+                    const lon = e.latlng.lng.toFixed(6);
+                    const coordStr = `${lat}, ${lon}`;
+
+                    // Show selection popup directly at clicked spot WITHOUT creating a pin marker
+                    this.clickPopup = L.popup({ className: 'custom-leaflet-popup' })
+                        .setLatLng(e.latlng)
+                        .setContent(`
+                            <div class="p-3 text-center w-[210px]">
+                                <div class="font-bold text-xs text-slate-900 border-b border-slate-100 pb-2 flex items-center justify-center space-x-1.5">
+                                    <i class="fa-solid fa-map-pin text-blue-600"></i>
+                                    <span>Clicked Location</span>
+                                </div>
+                                <div class="text-xs text-slate-700 font-mono my-2 bg-slate-50 p-2 rounded-xl border border-slate-200 leading-relaxed shadow-inner">
+                                    <div class="flex justify-between items-center"><span class="text-slate-400 font-sans text-[11px] uppercase font-semibold">Latitude</span><span class="font-semibold">${lat}</span></div>
+                                    <div class="flex justify-between items-center mt-1"><span class="text-slate-400 font-sans text-[11px] uppercase font-semibold">Longitude</span><span class="font-semibold">${lon}</span></div>
+                                </div>
+                                <div class="space-y-1.5 pt-1">
+                                    <button onclick="app.setPointFromMap('${coordStr}', 'start')" class="w-full bg-blue-600 hover:bg-blue-500 text-white py-1.5 px-2 rounded-lg text-xs font-medium transition shadow-sm flex items-center justify-center space-x-1" aria-label="Set point as start location">
+                                        <i class="fa-solid fa-circle-dot"></i>
+                                        <span>Set as Start</span>
+                                    </button>
+                                    <button onclick="app.setPointFromMap('${coordStr}', 'waypoint')" class="w-full bg-amber-500 hover:bg-amber-400 text-white py-1.5 px-2 rounded-lg text-xs font-medium transition shadow-sm flex items-center justify-center space-x-1" aria-label="Add point as destination stop">
+                                        <i class="fa-solid fa-location-dot"></i>
+                                        <span>Add as Stop</span>
+                                    </button>
+                                    <button onclick="app.setPointFromMap('${coordStr}', 'return')" class="w-full bg-purple-600 hover:bg-purple-500 text-white py-1.5 px-2 rounded-lg text-xs font-medium transition shadow-sm flex items-center justify-center space-x-1" aria-label="Set point as return location">
+                                        <i class="fa-solid fa-house-chimney"></i>
+                                        <span>Set as Return</span>
+                                    </button>
+                                </div>
+                            </div>
+                        `)
+                        .openOn(this.map);
+                });
+
+                // Auto-fit map viewport on window resize
+                window.addEventListener('resize', () => {
+                    if (this.map) {
+                        this.map.invalidateSize();
+                    }
+                });
+            }
+
+            toggleMapClickMode() {
+                this.mapClickEnabled = !this.mapClickEnabled;
+                const btn = document.getElementById('mapClickToggleBtn');
+                const text = document.getElementById('mapClickToggleText');
+
+                if (this.mapClickEnabled) {
+                    btn.classList.add('bg-blue-600', 'text-white', 'border-blue-600');
+                    btn.classList.remove('bg-slate-100', 'text-slate-600', 'border-slate-300');
+                    text.innerText = "Click to Set: ON";
+                } else {
+                    btn.classList.remove('bg-blue-600', 'text-white', 'border-blue-600');
+                    btn.classList.add('bg-slate-100', 'text-slate-600', 'border-slate-300');
+                    text.innerText = "Click to Set: OFF";
+                }
+            }
+
+            updateLivePreviewMarkers() {
+                // If a full calculated route is currently active, clear it when inputs change to update pins
+                if (this.routeLayer) {
+                    this.map.removeLayer(this.routeLayer);
+                    this.routeLayer = null;
+                }
+
+                this.markers.forEach(m => this.map.removeLayer(m));
+                this.markers = [];
+
+                if (!this.livePreviewEnabled) {
+                    return;
+                }
+
+                const validCoords = [];
+
+                // Check Start Point
+                const startVal = document.getElementById('startLocation')?.value.trim();
+                const parsedStart = this.parseCoordinates(startVal);
+                if (parsedStart) {
+                    validCoords.push({ coord: [parsedStart.lon, parsedStart.lat], type: 'start' });
+                }
+
+                // Check Waypoints
+                const waypointInputs = document.querySelectorAll('.waypoint-input');
+                waypointInputs.forEach((input, idx) => {
+                    const parsed = this.parseCoordinates(input.value.trim());
+                    if (parsed) {
+                        validCoords.push({ coord: [parsed.lon, parsed.lat], type: 'waypoint', index: idx + 1 });
+                    }
+                });
+
+                // Check Return Point
+                const returnVal = document.getElementById('returnLocation')?.value.trim();
+                const parsedReturn = this.parseCoordinates(returnVal);
+                if (parsedReturn) {
+                    validCoords.push({ coord: [parsedReturn.lon, parsedReturn.lat], type: 'return' });
+                }
+
+                const bounds = [];
+                validCoords.forEach((item) => {
+                    let title = `Stop #${item.index || 1}`;
+                    let iconClass = 'fa-location-dot text-amber-500';
+                    if (item.type === 'start') {
+                        title = 'Truck Start Point';
+                        iconClass = 'fa-circle-dot text-blue-600';
+                    } else if (item.type === 'return') {
+                        title = 'Truck Return Point';
+                        iconClass = 'fa-house-chimney text-purple-600';
+                    }
+
+                    const marker = L.marker([item.coord[1], item.coord[0]])
+                        .addTo(this.map)
+                        .bindTooltip(title, {
+                            permanent: true,
+                            direction: 'top',
+                            offset: [0, -32],
+                            className: 'custom-map-label'
+                        })
+                        .bindPopup(`
+                            <div class="p-3 text-center w-[210px]">
+                                <div class="font-bold text-xs text-slate-900 border-b border-slate-100 pb-2 flex items-center justify-center space-x-2">
+                                    <i class="fa-solid ${iconClass}"></i>
+                                    <span>${title}</span>
+                                </div>
+                                <div class="text-xs text-slate-700 font-mono mt-2 bg-slate-50 p-2 rounded-xl border border-slate-200 leading-relaxed shadow-inner">
+                                    <div class="flex justify-between items-center"><span class="text-slate-400 font-sans text-[11px] uppercase font-semibold">Latitude</span><span class="font-semibold">${item.coord[1].toFixed(6)}</span></div>
+                                    <div class="flex justify-between items-center mt-1"><span class="text-slate-400 font-sans text-[11px] uppercase font-semibold">Longitude</span><span class="font-semibold">${item.coord[0].toFixed(6)}</span></div>
+                                </div>
+                            </div>
+                        `, { className: 'custom-leaflet-popup' });
+                    this.markers.push(marker);
+                    bounds.push([item.coord[1], item.coord[0]]);
+                });
+
+                if (bounds.length === 1) {
+                    this.map.setView(bounds[0], 11);
+                } else if (bounds.length > 1) {
+                    this.map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
+                }
+            }
+
+            changeMapStyle(styleKey) {
+                if (this.currentTileLayer) {
+                    this.map.removeLayer(this.currentTileLayer);
+                }
+                if (this.tileLayers[styleKey]) {
+                    this.currentTileLayer = this.tileLayers[styleKey];
+                    this.currentTileLayer.addTo(this.map);
+                }
+            }
+
+            toggleSidebar() {
+                const sidebar = document.getElementById('leftSidebar');
+                const toggleText = document.getElementById('togglePanelText');
+                if (sidebar.classList.contains('hidden')) {
+                    sidebar.classList.remove('hidden');
+                    toggleText.innerText = "Hide Panel";
+                } else {
+                    sidebar.classList.add('hidden');
+                    toggleText.innerText = "Show Panel";
+                }
+                setTimeout(() => {
+                    if (this.map) this.map.invalidateSize();
+                }, 300);
+            }
+
+            toggleSummarySection() {
+                const summarySection = document.getElementById('summarySection');
+                const toggleText = document.getElementById('toggleSummaryText');
+                const toggleIcon = document.getElementById('toggleSummaryIcon');
+
+                if (!summarySection) return;
+
+                if (summarySection.classList.contains('hidden')) {
+                    summarySection.classList.remove('hidden');
+                    if (toggleText) toggleText.innerText = "Hide Summary";
+                    if (toggleIcon) {
+                        toggleIcon.className = "fa-solid fa-chevron-up text-blue-600 transition-transform duration-200";
+                    }
+                } else {
+                    summarySection.classList.add('hidden');
+                    if (toggleText) toggleText.innerText = "Show Summary";
+                    if (toggleIcon) {
+                        toggleIcon.className = "fa-solid fa-chevron-down text-blue-600 transition-transform duration-200";
+                    }
+                }
+
+                setTimeout(() => {
+                    if (this.map) this.map.invalidateSize();
+                }, 150);
+            }
+
+            toggleMapPasteWidget() {
+                const widget = document.getElementById('mapPasteWidget');
+                const showBtn = document.getElementById('showMapPasteBtn');
+                if (widget.classList.contains('hidden')) {
+                    widget.classList.remove('hidden');
+                    showBtn.classList.add('hidden');
+                    showBtn.classList.remove('flex');
+                } else {
+                    widget.classList.add('hidden');
+                    showBtn.classList.remove('hidden');
+                    showBtn.classList.add('flex');
+                }
+            }
+
+            setPointFromMap(coordStr, type) {
+                // Close selection popup box cleanly
+                this.map.closePopup();
+                this.clickPopup = null;
+
+                if (type === 'start') {
+                    document.getElementById('startLocation').value = coordStr;
+                } else if (type === 'waypoint') {
+                    const inputs = document.querySelectorAll('.waypoint-input');
+                    let placed = false;
+                    for (let input of inputs) {
+                        if (!input.value.trim()) {
+                            input.value = coordStr;
+                            placed = true;
+                            break;
+                        }
+                    }
+                    if (!placed) {
+                        this.addWaypoint(coordStr);
+                    }
+                } else if (type === 'return') {
+                    document.getElementById('returnLocation').value = coordStr;
+                }
+
+                // Generate and drop pin on map
+                this.updateLivePreviewMarkers();
+            }
+
+            handleMapJumpAction() {
+                const inputVal = document.getElementById('mapPasteCoordInput').value.trim();
+                if (!inputVal) {
+                    this.showModal("Input Required", "Please paste or type coordinates (lat, lon) first.", "warning");
+                    return;
+                }
+                const parsed = this.parseCoordinates(inputVal);
+                if (!parsed) {
+                    this.showModal("Invalid Coordinates", `The coordinate format ("${inputVal}") is invalid. Please use format: lat, lon (e.g. 24.7136, 46.6753)`, "error");
+                    return;
+                }
+
+                this.map.setView([parsed.lat, parsed.lon], 13);
+                const marker = L.marker([parsed.lat, parsed.lon]).addTo(this.map)
+                    .bindPopup(`
+                        <div class="p-3 text-center w-[210px]">
+                            <div class="font-bold text-xs text-slate-900 border-b border-slate-100 pb-2 flex items-center justify-center space-x-1.5">
+                                <i class="fa-solid fa-location-crosshairs text-blue-600"></i>
+                                <span>Pasted Location</span>
+                            </div>
+                            <div class="text-xs text-slate-700 font-mono mt-2 bg-slate-50 p-2 rounded-xl border border-slate-200 leading-relaxed shadow-inner">
+                                <div class="flex justify-between items-center"><span class="text-slate-400 font-sans text-[11px] uppercase font-semibold">Latitude</span><span class="font-semibold">${parsed.lat.toFixed(6)}</span></div>
+                                <div class="flex justify-between items-center mt-1"><span class="text-slate-400 font-sans text-[11px] uppercase font-semibold">Longitude</span><span class="font-semibold">${parsed.lon.toFixed(6)}</span></div>
+                            </div>
+                        </div>
+                    `, { className: 'custom-leaflet-popup' }).openPopup();
+                this.markers.push(marker);
+            }
+
+            initDefaultForm() {
+                this.addWaypoint("");
+                document.getElementById('tgaComplianceToggle').checked = true;
+                this.toggleTgaCompliance();
+                this.setDepartureToCurrentDateTime();
+            }
+
+            bindInputListeners() {
+                const startInput = document.getElementById('startLocation');
+                if (startInput) {
+                    startInput.addEventListener('input', () => this.updateLivePreviewMarkers());
+                }
+
+                const returnInput = document.getElementById('returnLocation');
+                if (returnInput) {
+                    returnInput.addEventListener('input', () => this.updateLivePreviewMarkers());
+                }
+            }
+
+            setDepartureToCurrentDateTime() {
+                const now = new Date();
+                now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                const elem = document.getElementById('departureDateTime');
+                if (elem) {
+                    elem.value = now.toISOString().slice(0, 16);
+                }
+            }
+
+            toggleTgaCompliance() {
+                const isChecked = document.getElementById('tgaComplianceToggle').checked;
+                const restIntervalInput = document.getElementById('restIntervalKm');
+                const restIntervalLabel = document.getElementById('restIntervalLabel');
+                const restIntervalIcon = document.getElementById('restIntervalIcon');
+                
+                const restingHoursInput = document.getElementById('restingHours');
+                const restingHoursLabel = document.getElementById('restingHoursLabel');
+                const restingHoursIcon = document.getElementById('restingHoursIcon');
+
+                if (isChecked) {
+                    restIntervalInput.disabled = true;
+                    restIntervalInput.value = "500";
+                    restIntervalInput.classList.add('bg-slate-200', 'text-slate-400', 'cursor-not-allowed');
+                    restIntervalInput.classList.remove('bg-slate-50', 'text-slate-800');
+                    restIntervalLabel.classList.add('text-slate-400');
+                    restIntervalIcon.classList.add('text-slate-400');
+                    restIntervalIcon.classList.remove('text-blue-500');
+
+                    restingHoursInput.disabled = true;
+                    restingHoursInput.value = "TGA Auto";
+                    restingHoursInput.classList.add('bg-slate-200', 'text-slate-400', 'cursor-not-allowed');
+                    restingHoursInput.classList.remove('bg-slate-50', 'text-slate-800');
+                    restingHoursLabel.classList.add('text-slate-400');
+                    restingHoursIcon.classList.add('text-slate-400');
+                    restingHoursIcon.classList.remove('text-purple-600');
+                } else {
+                    restIntervalInput.disabled = false;
+                    restIntervalInput.classList.remove('bg-slate-200', 'text-slate-400', 'cursor-not-allowed');
+                    restIntervalInput.classList.add('bg-slate-50', 'text-slate-800');
+                    restIntervalLabel.classList.remove('text-slate-400');
+                    restIntervalIcon.classList.remove('text-slate-400');
+                    restIntervalIcon.classList.add('text-blue-500');
+
+                    restingHoursInput.disabled = false;
+                    if (restingHoursInput.value === "TGA Auto") {
+                        restingHoursInput.value = "1.0";
+                    }
+                    restingHoursInput.classList.remove('bg-slate-200', 'text-slate-400', 'cursor-not-allowed');
+                    restingHoursInput.classList.add('bg-slate-50', 'text-slate-800');
+                    restingHoursLabel.classList.remove('text-slate-400');
+                    restingHoursIcon.classList.remove('text-slate-400');
+                    restingHoursIcon.classList.add('text-purple-600');
+                }
+            }
+
+            handleLoadWeightChange() {
+                const loadType = document.getElementById('truckLoadWeight').value;
+                const efficiencyInput = document.getElementById('fuelEfficiency');
+
+                if (loadType === 'empty') {
+                    efficiencyInput.value = "3.2";
+                } else if (loadType === 'partial') {
+                    efficiencyInput.value = "2.5";
+                } else if (loadType === 'full') {
+                    efficiencyInput.value = "2.0";
+                } else if (loadType === 'overload') {
+                    efficiencyInput.value = "1.5";
+                }
+            }
+
+            addWaypoint(value = "") {
+                const container = document.getElementById('waypointsContainer');
+                const row = document.createElement('div');
+                row.className = "flex items-center space-x-2 waypoint-row group cursor-move transition-all duration-200 p-0.5 rounded-xl";
+                row.setAttribute('draggable', 'true');
+
+                // Drag Handle Icon
+                const dragHandle = document.createElement('div');
+                dragHandle.className = "text-slate-400 group-hover:text-slate-600 px-1 py-2 cursor-grab active:cursor-grabbing flex items-center justify-center shrink-0 select-none";
+                dragHandle.title = "Click & drag to re-order waypoint";
+                dragHandle.innerHTML = '<i class="fa-solid fa-grip-vertical text-sm"></i>';
+
+                const wrapper = document.createElement('div');
+                wrapper.className = "relative flex-1";
+
+                const icon = document.createElement('span');
+                icon.className = "absolute inset-y-0 left-0 flex items-center pl-3.5 text-amber-600";
+                icon.innerHTML = '<i class="fa-solid fa-location-dot"></i>';
+
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.value = value;
+                input.placeholder = 'e.g. 26.3606, 50.0265';
+                input.className = "waypoint-input w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-4 py-2.5 text-sm font-mono text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white transition";
+                input.setAttribute('aria-label', 'Destination stop coordinates in latitude and longitude');
+                input.addEventListener('input', () => this.updateLivePreviewMarkers());
+
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = "remove-waypoint-btn bg-slate-100 hover:bg-rose-50 hover:border-rose-300 text-slate-500 hover:text-rose-600 border border-slate-300 p-2.5 rounded-xl transition shrink-0";
+                removeBtn.title = 'Remove stop';
+                removeBtn.setAttribute('aria-label', 'Remove destination stop');
+                removeBtn.innerHTML = '<i class="fa-solid fa-trash-can text-sm"></i>';
+                removeBtn.addEventListener('click', () => this.removeWaypoint(removeBtn));
+
+                // HTML5 Drag and Drop Event Listeners
+                row.addEventListener('dragstart', (e) => {
+                    if (e.target.tagName === 'INPUT' || e.target.closest('button')) {
+                        e.preventDefault();
+                        return;
+                    }
+                    this.draggedWaypointRow = row;
+                    row.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                });
+
+                row.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    if (this.draggedWaypointRow && this.draggedWaypointRow !== row) {
+                        const bounding = row.getBoundingClientRect();
+                        const offset = e.clientY - bounding.top;
+                        if (offset > bounding.height / 2) {
+                            row.after(this.draggedWaypointRow);
+                        } else {
+                            row.before(this.draggedWaypointRow);
+                        }
+                    }
+                });
+
+                row.addEventListener('dragend', () => {
+                    row.classList.remove('dragging');
+                    this.draggedWaypointRow = null;
+                    this.updateLivePreviewMarkers();
+                });
+
+                row.appendChild(dragHandle);
+                wrapper.appendChild(icon);
+                wrapper.appendChild(input);
+                row.appendChild(wrapper);
+                row.appendChild(removeBtn);
+                container.appendChild(row);
+
+                if (value) {
+                    this.updateLivePreviewMarkers();
+                }
+            }
+
+            removeWaypoint(btn) {
+                const container = document.getElementById('waypointsContainer');
+                if (container.children.length > 1) {
+                    btn.closest('.waypoint-row').remove();
+                    this.updateLivePreviewMarkers();
+                } else {
+                    this.showModal("Notice", "You need at least one destination coordinate stop for your route.", "warning");
+                }
+            }
+
+            resetForm() {
+                document.getElementById('tgaComplianceToggle').checked = true;
+                this.toggleTgaCompliance();
+
+                document.getElementById('startLocation').value = "";
+                document.getElementById('waypointsContainer').innerHTML = "";
+                this.addWaypoint("");
+                document.getElementById('returnLocation').value = "";
+                document.getElementById('truckLoadWeight').value = "full";
+                document.getElementById('currentFuel').value = "0";
+                document.getElementById('fuelEfficiency').value = "2.0";
+                document.getElementById('fuelPrice').value = "1.79";
+                document.getElementById('extraFuel').value = "0";
+                document.getElementById('avgSpeed').value = "75";
+                document.getElementById('restIntervalKm').value = "500";
+                document.getElementById('delayHours').value = "0";
+                
+                this.setDepartureToCurrentDateTime();
+
+                document.getElementById('statDistance').innerText = "0.00 km";
+                document.getElementById('statFuelRequired').innerText = "0.00 L";
+                const costEl = document.getElementById('statFuelCost');
+                if (costEl) {
+                    costEl.innerText = "";
+                    costEl.classList.add('hidden');
+                }
+                document.getElementById('statTravelTime').innerText = "0h 0m";
+                document.getElementById('statArrivalTime').innerText = "--";
+                document.getElementById('statFuelStatus').innerText = "Fuel status pending";
+                document.getElementById('statFuelStatus').className = "text-sm font-bold text-slate-600";
+                document.getElementById('summaryRouteStatus').innerText = "Pending calculation";
+                document.getElementById('summaryDriving').innerText = "0h 0m";
+                document.getElementById('summaryBreaks').innerText = "0h 0m";
+                document.getElementById('summaryDailyRest').innerText = "0h 0m";
+                document.getElementById('summaryDelays').innerText = "0h 0m";
+
+                if (this.clickPopup) {
+                    this.map.closePopup(this.clickPopup);
+                    this.clickPopup = null;
+                }
+
+                if (this.routeLayer) {
+                    this.map.removeLayer(this.routeLayer);
+                    this.routeLayer = null;
+                }
+                this.markers.forEach(m => this.map.removeLayer(m));
+                this.markers = [];
+            }
+
+            shareToWhatsApp() {
+                const startStr = document.getElementById('startLocation').value.trim();
+                const waypointInputs = document.querySelectorAll('.waypoint-input');
+                const returnStr = document.getElementById('returnLocation').value.trim();
+                const distance = document.getElementById('statDistance').innerText;
+                
+                const fuelBase = document.getElementById('statFuelRequired').innerText;
+                const fuelCostEl = document.getElementById('statFuelCost');
+                const fuelCostStr = (fuelCostEl && !fuelCostEl.classList.contains('hidden') && fuelCostEl.innerText) ? ` ${fuelCostEl.innerText}` : '';
+                const fuel = `${fuelBase}${fuelCostStr}`;
+
+                const time = document.getElementById('statTravelTime').innerText;
+                const arrival = document.getElementById('statArrivalTime').innerText;
+                const status = document.getElementById('statFuelStatus').innerText;
+
+                if (distance === "0.00 km") {
+                    this.showModal("Notice", "Please calculate a route before sharing to WhatsApp.", "warning");
+                    return;
+                }
+
+                const allPoints = [];
+                if (startStr) allPoints.push(startStr);
+                waypointInputs.forEach(input => {
+                    const val = input.value.trim();
+                    if (val) allPoints.push(val);
+                });
+                if (returnStr) allPoints.push(returnStr);
+
+                let gmapsUrl = "";
+                if (allPoints.length >= 2) {
+                    const origin = allPoints[0];
+                    const destination = allPoints[allPoints.length - 1];
+                    const intermediate = allPoints.slice(1, allPoints.length - 1);
+                    
+                    gmapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}`;
+                    if (intermediate.length > 0) {
+                        gmapsUrl += `&waypoints=${encodeURIComponent(intermediate.join('|'))}`;
+                    }
+                }
+
+                let message = `🚚 *LogisticsRoute Pro - KSA Route Summary*\n\n` +
+                              `📍 *Start:* ${startStr || 'N/A'}\n` +
+                              `📏 *Distance:* ${distance}\n` +
+                              `⛽ *Fuel Required:* ${fuel}\n` +
+                              `⏱️ *Travel Time:* ${time}\n` +
+                              `📅 *Arrival:* ${arrival}\n` +
+                              `⚖️ *Status:* ${status}`;
+
+                if (gmapsUrl) {
+                    message += `\n\n🗺️ *Open in Google Maps:*\n${gmapsUrl}`;
+                }
+
+                const encodedMessage = encodeURIComponent(message);
+                const whatsappUrl = `https://api.whatsapp.com/send?text=${encodedMessage}`;
+                window.open(whatsappUrl, '_blank');
+            }
+
+            copyGoogleMapsLink() {
+                const startStr = document.getElementById('startLocation').value.trim();
+                const waypointInputs = document.querySelectorAll('.waypoint-input');
+                const returnStr = document.getElementById('returnLocation').value.trim();
+
+                if (!startStr) {
+                    this.showModal("Missing Start Point", "Please provide at least a starting coordinate point.", "warning");
+                    return;
+                }
+
+                const allPoints = [startStr];
+                waypointInputs.forEach(input => {
+                    const val = input.value.trim();
+                    if (val) allPoints.push(val);
+                });
+                if (returnStr) allPoints.push(returnStr);
+
+                if (allPoints.length < 2) {
+                    this.showModal("Missing Destination", "Please provide at least one destination waypoint or return point to generate a route link.", "warning");
+                    return;
+                }
+
+                const origin = allPoints[0];
+                const destination = allPoints[allPoints.length - 1];
+                const intermediate = allPoints.slice(1, allPoints.length - 1);
+
+                let gmapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}`;
+                if (intermediate.length > 0) {
+                    gmapsUrl += `&waypoints=${encodeURIComponent(intermediate.join('|'))}`;
+                }
+
+                // Copy to clipboard using robust execCommand fallback
+                const textarea = document.createElement('textarea');
+                textarea.value = gmapsUrl;
+                textarea.style.position = 'fixed'; // Avoid scrolling to bottom
+                document.body.appendChild(textarea);
+                textarea.focus();
+                textarea.select();
+
+                try {
+                    const successful = document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                    if (successful) {
+                        this.showModal("Link Copied!", `The Google Maps directions link with all waypoints has been copied to your clipboard:\n\n${gmapsUrl}`, "success");
+                    } else {
+                        throw new Error("execCommand returned false");
+                    }
+                } catch (err) {
+                    document.body.removeChild(textarea);
+                    this.showModal("Copy Failed", `Could not copy automatically. Here is your Google Maps link:\n\n${gmapsUrl}`, "warning");
+                }
+            }
+
+            parseCoordinates(inputStr) {
+                const match = String(inputStr).trim().match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
+                if (!match) return null;
+
+                const lat = Number(match[1]);
+                const lon = Number(match[2]);
+                if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+                if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+
+                return { lat, lon };
+            }
+
+            async calculateRoute() {
+                const originStr = document.getElementById('startLocation').value.trim();
+                const waypointInputs = document.querySelectorAll('.waypoint-input');
+                const returnStr = document.getElementById('returnLocation').value.trim();
+
+                if (!originStr) {
+                    this.showModal("Missing Start Point", "Please provide a valid start coordinate.", "warning");
+                    return;
+                }
+
+                const rawInputs = [originStr];
+                waypointInputs.forEach(input => {
+                    const value = input.value.trim();
+                    if (value) rawInputs.push(value);
+                });
+                if (returnStr) rawInputs.push(returnStr);
+
+                if (rawInputs.length < 2) {
+                    this.showModal("Missing Destination", "Please provide at least one destination coordinate stop.", "warning");
+                    return;
+                }
+
+                const coords = [];
+                for (let i = 0; i < rawInputs.length; i++) {
+                    const parsed = this.parseCoordinates(rawInputs[i]);
+                    if (!parsed) {
+                        const stopName = i === 0 ? "Start Point" : (i === rawInputs.length - 1 && returnStr ? "Return Point" : `Stop #${i}`);
+                        this.showModal("Invalid Coordinates", `The coordinate format for ${stopName} ("${rawInputs[i]}") is invalid. Please use: lat, lon`, "error");
+                        return;
+                    }
+                    coords.push([parsed.lon, parsed.lat]);
+                }
+
+                this.clearMapRoute();
+                this.addRouteMarkers(coords, !!returnStr);
+
+                const coordinatesString = coords.map(c => c.join(',')).join(';');
+                const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${coordinatesString}?overview=full&geometries=geojson&steps=true`;
+
+                try {
+                    const response = await fetch(osrmUrl, { headers: { 'Accept': 'application/json' } });
+                    if (!response.ok) throw new Error(`Routing service returned ${response.status}`);
+                    const data = await response.json();
+
+                    if (data.code === 'Ok' && data.routes?.length) {
+                        const route = data.routes[0];
+                        const distanceKm = route.distance / 1000;
+                        const routeLatLngs = route.geometry.coordinates.map(coord => [coord[1], coord[0]]);
+                        
+                        // Store route coordinates for KML export
+                        this.lastRouteCoordinates = route.geometry.coordinates; // [lon, lat]
+
+                        this.routeLayer = L.polyline(routeLatLngs, { color: '#2563eb', weight: 5, opacity: 0.8 }).addTo(this.map);
+                        this.map.fitBounds(this.routeLayer.getBounds(), { padding: [50, 50] });
+
+                        this.finalizeMetrics(distanceKm, { approximate: false });
+                    } else {
+                        throw new Error(data.message || 'No route returned');
+                    }
+                } catch (error) {
+                    console.warn('OSRM routing failed:', error);
+                    // Store straight-line coordinates for KML export fallback
+                    this.lastRouteCoordinates = coords; // [lon, lat]
+                    this.fallbackHaversineCalculation(coords);
+                }
+            }
+
+            clearMapRoute() {
+                if (this.clickPopup) {
+                    this.map.closePopup(this.clickPopup);
+                    this.clickPopup = null;
+                }
+                if (this.routeLayer) {
+                    this.map.removeLayer(this.routeLayer);
+                    this.routeLayer = null;
+                }
+                this.lastRouteCoordinates = null;
+                this.markers.forEach(marker => this.map.removeLayer(marker));
+                this.markers = [];
+            }
+
+            async saveKmlFile() {
+                const originStr = document.getElementById('startLocation').value.trim();
+                const waypointInputs = document.querySelectorAll('.waypoint-input');
+                const returnStr = document.getElementById('returnLocation').value.trim();
+
+                if (!originStr) {
+                    this.showModal("Missing Route", "Please provide at least a start point and calculate/specify waypoints before exporting to KML.", "warning");
+                    return;
+                }
+
+                const rawInputs = [originStr];
+                waypointInputs.forEach(input => {
+                    const val = input.value.trim();
+                    if (val) rawInputs.push(val);
+                });
+                if (returnStr) rawInputs.push(returnStr);
+
+                const points = [];
+                for (let i = 0; i < rawInputs.length; i++) {
+                    const parsed = this.parseCoordinates(rawInputs[i]);
+                    if (parsed) {
+                        let name = `Stop #${i}`;
+                        if (i === 0) name = "Start Point";
+                        else if (i === rawInputs.length - 1 && returnStr) name = "Return Point";
+                        points.push({ name, lat: parsed.lat, lon: parsed.lon });
+                    }
+                }
+
+                if (points.length === 0) {
+                    this.showModal("No Coordinates", "No valid coordinates found to export.", "warning");
+                    return;
+                }
+
+                // Build KML XML content
+                let kmlPlacemarks = '';
+                points.forEach((pt, index) => {
+                    kmlPlacemarks += `
+    <Placemark>
+        <name>${escapeXml(pt.name)}</name>
+        <description>LogisticsRoute Pro Stop #${index + 1}</description>
+        <Point>
+            <coordinates>${pt.lon},${pt.lat},0</coordinates>
+        </Point>
+    </Placemark>`;
+                });
+
+                let lineStringKml = '';
+                if (this.lastRouteCoordinates && this.lastRouteCoordinates.length > 0) {
+                    const coordString = this.lastRouteCoordinates.map(c => `${c[0]},${c[1]},0`).join(' ');
+                    lineStringKml = `
+    <Placemark>
+        <name>Truck Route Path</name>
+        <styleUrl>#routeLineStyle</styleUrl>
+        <LineString>
+            <tessellate>1</tessellate>
+            <coordinates>
+                ${coordString}
+            </coordinates>
+        </LineString>
+    </Placemark>`;
+                }
+
+                const kmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>LogisticsRoute Pro - KSA Truck Route</name>
+    <description>Generated by LogisticsRoute Pro Saudi Arabia Heavy Truck &amp; Fuel Calculator</description>
+    <Style id="routeLineStyle">
+      <LineStyle>
+        <color>ffeb6325</color>
+        <width>5</width>
+      </LineStyle>
+    </Style>
+    ${kmlPlacemarks}
+    ${lineStringKml}
+  </Document>
+</kml>`;
+
+                function escapeXml(str) {
+                    return str.replace(/[<>&'"]/g, function (c) {
+                        switch (c) {
+                            case '<': return '&lt;';
+                            case '>': return '&gt;';
+                            case '&': return '&amp;';
+                            case '\'': return '&apos;';
+                            case '"': return '&quot;';
+                        }
+                    });
+                }
+
+                const suggestedFileName = `truck_route_${new Date().toISOString().slice(0, 10)}.kml`;
+
+                if ('showSaveFilePicker' in window) {
+                    try {
+                        const options = {
+                            suggestedName: suggestedFileName,
+                            types: [{
+                                description: 'KML Files',
+                                accept: { 'application/vnd.google-earth.kml+xml': ['.kml'] },
+                            }],
+                        };
+                        const handle = await window.showSaveFilePicker(options);
+                        const writableStream = await handle.createWritable();
+                        await writableStream.write(kmlContent);
+                        await writableStream.close();
+                        
+                        this.showModal("Success", "KML file successfully saved.", "success");
+                        return;
+                    } catch (err) {
+                        if (err.name === 'AbortError') return;
+                    }
+                }
+
+                const blob = new Blob([kmlContent], { type: 'application/vnd.google-earth.kml+xml;charset=utf-8;' });
+                const downloadAnchor = document.createElement('a');
+                downloadAnchor.href = URL.createObjectURL(blob);
+                downloadAnchor.download = suggestedFileName;
+                document.body.appendChild(downloadAnchor);
+                downloadAnchor.click();
+                downloadAnchor.remove();
+                URL.revokeObjectURL(downloadAnchor.href);
+            }
+
+            async saveProfileToFile() {
+                const waypointInputs = document.querySelectorAll('.waypoint-input');
+                const waypoints = [];
+                waypointInputs.forEach(input => {
+                    waypoints.push(input.value);
+                });
+
+                const profileData = {
+                    version: "1.0",
+                    timestamp: new Date().toISOString(),
+                    startLocation: document.getElementById('startLocation').value,
+                    waypoints: waypoints,
+                    returnLocation: document.getElementById('returnLocation').value,
+                    truckLoadWeight: document.getElementById('truckLoadWeight').value,
+                    currentFuel: document.getElementById('currentFuel').value,
+                    extraFuel: document.getElementById('extraFuel').value,
+                    fuelEfficiency: document.getElementById('fuelEfficiency').value,
+                    fuelPrice: document.getElementById('fuelPrice').value,
+                    avgSpeed: document.getElementById('avgSpeed').value,
+                    delayHours: document.getElementById('delayHours').value,
+                    tgaComplianceToggle: document.getElementById('tgaComplianceToggle').checked,
+                    restIntervalKm: document.getElementById('restIntervalKm').value,
+                    restingHours: document.getElementById('restingHours').value,
+                    departureDateTime: document.getElementById('departureDateTime').value
+                };
+
+                const jsonString = JSON.stringify(profileData, null, 2);
+                const suggestedFileName = `truck_route_profile_${new Date().toISOString().slice(0, 10)}.json`;
+
+                if ('showSaveFilePicker' in window) {
+                    try {
+                        const options = {
+                            suggestedName: suggestedFileName,
+                            types: [{
+                                description: 'JSON Profile Files',
+                                accept: { 'application/json': ['.json'] },
+                            }],
+                        };
+                        const handle = await window.showSaveFilePicker(options);
+                        const writableStream = await handle.createWritable();
+                        await writableStream.write(jsonString);
+                        await writableStream.close();
+                        
+                        this.showModal("Success", "Profile successfully saved to your chosen location.", "success");
+                        return;
+                    } catch (err) {
+                        if (err.name === 'AbortError') return;
+                        console.warn("File System Access API failed, falling back.", err);
+                    }
+                }
+
+                const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8;' });
+                const downloadAnchor = document.createElement('a');
+                downloadAnchor.href = URL.createObjectURL(blob);
+                downloadAnchor.download = suggestedFileName;
+                document.body.appendChild(downloadAnchor);
+                downloadAnchor.click();
+                downloadAnchor.remove();
+                URL.revokeObjectURL(downloadAnchor.href);
+            }
+
+            loadProfileFromFile(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const profile = JSON.parse(e.target.result);
+                        
+                        if (profile.startLocation !== undefined) document.getElementById('startLocation').value = profile.startLocation;
+                        if (profile.returnLocation !== undefined) document.getElementById('returnLocation').value = profile.returnLocation;
+                        if (profile.truckLoadWeight !== undefined) document.getElementById('truckLoadWeight').value = profile.truckLoadWeight;
+                        if (profile.currentFuel !== undefined) document.getElementById('currentFuel').value = profile.currentFuel;
+                        if (profile.extraFuel !== undefined) document.getElementById('extraFuel').value = profile.extraFuel;
+                        if (profile.fuelEfficiency !== undefined) document.getElementById('fuelEfficiency').value = profile.fuelEfficiency;
+                        if (profile.fuelPrice !== undefined) document.getElementById('fuelPrice').value = profile.fuelPrice;
+                        if (profile.avgSpeed !== undefined) document.getElementById('avgSpeed').value = profile.avgSpeed;
+                        if (profile.delayHours !== undefined) document.getElementById('delayHours').value = profile.delayHours;
+                        
+                        if (profile.tgaComplianceToggle !== undefined) {
+                            document.getElementById('tgaComplianceToggle').checked = profile.tgaComplianceToggle;
+                            this.toggleTgaCompliance();
+                        }
+
+                        if (profile.restIntervalKm !== undefined) document.getElementById('restIntervalKm').value = profile.restIntervalKm;
+                        if (profile.restingHours !== undefined) document.getElementById('restingHours').value = profile.restingHours;
+                        if (profile.departureDateTime !== undefined) document.getElementById('departureDateTime').value = profile.departureDateTime;
+
+                        if (Array.isArray(profile.waypoints)) {
+                            const container = document.getElementById('waypointsContainer');
+                            container.innerHTML = "";
+                            if (profile.waypoints.length === 0) {
+                                this.addWaypoint("");
+                            } else {
+                                profile.waypoints.forEach(wp => {
+                                    this.addWaypoint(wp);
+                                });
+                            }
+                        }
+
+                        this.updateLivePreviewMarkers();
+                        this.showModal("Profile Loaded", "Route parameters and settings were loaded successfully from file.", "success");
+                    } catch (err) {
+                        console.error("Failed to parse profile JSON:", err);
+                        this.showModal("Load Error", "The selected file is not a valid JSON profile.", "error");
+                    }
+                    event.target.value = "";
+                };
+                reader.readAsText(file);
+            }
+
+            addRouteMarkers(coords, hasReturn) {
+                coords.forEach((coord, index) => {
+                    let title = `Stop #${index}`;
+                    let iconClass = 'fa-location-dot text-amber-500';
+                    if (index === 0) {
+                        title = 'Truck Start Point';
+                        iconClass = 'fa-circle-dot text-blue-600';
+                    } else if (index === coords.length - 1 && hasReturn) {
+                        title = 'Truck Return Point';
+                        iconClass = 'fa-house-chimney text-purple-600';
+                    }
+                    const marker = L.marker([coord[1], coord[0]])
+                        .addTo(this.map)
+                        .bindTooltip(title, {
+                            permanent: true,
+                            direction: 'top',
+                            offset: [0, -32],
+                            className: 'custom-map-label'
+                        })
+                        .bindPopup(`
+                            <div class="p-3 text-center w-[210px]">
+                                <div class="font-bold text-xs text-slate-900 border-b border-slate-100 pb-2 flex items-center justify-center space-x-2">
+                                    <i class="fa-solid ${iconClass}"></i>
+                                    <span>${title}</span>
+                                </div>
+                                <div class="text-xs text-slate-700 font-mono mt-2 bg-slate-50 p-2 rounded-xl border border-slate-200 leading-relaxed shadow-inner">
+                                    <div class="flex justify-between items-center"><span class="text-slate-400 font-sans text-[11px] uppercase font-semibold">Latitude</span><span class="font-semibold">${coord[1].toFixed(6)}</span></div>
+                                    <div class="flex justify-between items-center mt-1"><span class="text-slate-400 font-sans text-[11px] uppercase font-semibold">Longitude</span><span class="font-semibold">${coord[0].toFixed(6)}</span></div>
+                                </div>
+                            </div>
+                        `, { className: 'custom-leaflet-popup' });
+                    this.markers.push(marker);
+                });
+            }
+
+            fallbackHaversineCalculation(coords) {
+                let totalDistanceKm = 0;
+                for (let i = 0; i < coords.length - 1; i++) {
+                    totalDistanceKm += this.calculateHaversineDistance(
+                        coords[i][1], coords[i][0], coords[i + 1][1], coords[i + 1][0]
+                    );
+                }
+
+                const routeLatLngs = coords.map(c => [c[1], c[0]]);
+                this.routeLayer = L.polyline(routeLatLngs, {
+                    color: '#64748b', weight: 4, opacity: 0.8, dashArray: '8 8'
+                }).addTo(this.map);
+                this.map.fitBounds(this.routeLayer.getBounds(), { padding: [50, 50] });
+
+                this.finalizeMetrics(totalDistanceKm, { approximate: true });
+                this.showModal(
+                    "Approximate Route Used",
+                    "The routing service was unavailable. Distance is estimated from straight-line coordinates and is not an actual road-route distance. Recalculate when the routing service is available.",
+                    "warning"
+                );
+            }
+
+            calculateHaversineDistance(lat1, lon1, lat2, lon2) {
+                const R = 6371;
+                const dLat = (lat2 - lat1) * Math.PI / 180;
+                const dLon = (lon2 - lon1) * Math.PI / 180;
+                const a = Math.sin(dLat / 2) ** 2 +
+                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                return R * c;
+            }
+
+            formatDuration(hours) {
+                const totalMinutes = Math.max(0, Math.round(hours * 60));
+                const h = Math.floor(totalMinutes / 60);
+                const m = totalMinutes % 60;
+                return `${h}h ${m}m`;
+            }
+
+            calculateComplianceSchedule(drivingHours, isTgaActive, restIntervalKm, distanceKm) {
+                if (isTgaActive) {
+                    const mandatoryBreaks = Math.max(0, Math.ceil(drivingHours / 4.5) - 1);
+                    const breakHours = mandatoryBreaks * 0.75;
+                    const dailyRestHours = drivingHours > 9 ? 11 : 0;
+                    return {
+                        mandatoryBreaks,
+                        breakHours,
+                        customRestHours: 0,
+                        dailyRestHours,
+                        totalRestHours: breakHours + dailyRestHours
+                    };
+                }
+
+                const restHoursPerInterval = Math.max(0, parseFloat(document.getElementById('restingHours').value) || 0);
+                const intervals = Math.max(0, Math.ceil(distanceKm / restIntervalKm) - 1);
+                const customRestHours = intervals * restHoursPerInterval;
+                return {
+                    mandatoryBreaks: 0,
+                    breakHours: 0,
+                    customRestHours,
+                    dailyRestHours: 0,
+                    totalRestHours: customRestHours
+                };
+            }
+
+            finalizeMetrics(totalDistanceKm, { approximate = false } = {}) {
+                const currentFuel = Math.max(0, parseFloat(document.getElementById('currentFuel').value) || 0);
+                const fuelEfficiency = Math.max(0.1, parseFloat(document.getElementById('fuelEfficiency').value) || 1);
+                const fuelPrice = Math.max(0, parseFloat(document.getElementById('fuelPrice').value) || 1.79);
+                const extraFuel = Math.max(0, parseFloat(document.getElementById('extraFuel').value) || 0);
+                const avgSpeed = Math.max(1, parseFloat(document.getElementById('avgSpeed').value) || 80);
+                const isTgaActive = document.getElementById('tgaComplianceToggle').checked;
+                const restIntervalKm = Math.max(1, parseFloat(document.getElementById('restIntervalKm').value) || 500);
+                const delayHours = Math.max(0, parseFloat(document.getElementById('delayHours').value) || 0);
+                const departureStr = document.getElementById('departureDateTime').value;
+                const loadType = document.getElementById('truckLoadWeight').value;
+                const waypointCount = [...document.querySelectorAll('.waypoint-input')].filter(i => i.value.trim()).length;
+
+                const baseRouteFuel = totalDistanceKm / fuelEfficiency;
+                const fuelRequired = baseRouteFuel + extraFuel;
+                const fuelCost = fuelRequired * fuelPrice;
+                const drivingHours = totalDistanceKm / avgSpeed;
+                const schedule = this.calculateComplianceSchedule(drivingHours, isTgaActive, restIntervalKm, totalDistanceKm);
+                const totalTravelHours = drivingHours + schedule.totalRestHours + delayHours;
+
+                const loadLabels = {
+                    empty: 'Empty Truck (0 tons)',
+                    partial: 'Partial Load (15 tons)',
+                    full: 'Full Load (25 tons)',
+                    overload: 'Overloaded (28 tons)'
+                };
+                const loadLabel = loadLabels[loadType] || 'Unknown Load';
+
+                document.getElementById('statDistance').innerText = `${totalDistanceKm.toFixed(2)} km`;
+                document.getElementById('statFuelRequired').innerText = `${fuelRequired.toFixed(2)} L`;
+                
+                const costEl = document.getElementById('statFuelCost');
+                if (costEl) {
+                    costEl.innerText = `(SAR ${fuelCost.toFixed(2)})`;
+                    costEl.classList.remove('hidden');
+                }
+
+                document.getElementById('statTravelTime').innerText = this.formatDuration(totalTravelHours);
+
+                const arrivalEl = document.getElementById('statArrivalTime');
+                if (departureStr) {
+                    const departureDate = new Date(departureStr);
+                    if (!Number.isNaN(departureDate.getTime())) {
+                        const arrivalDate = new Date(departureDate.getTime() + totalTravelHours * 3600 * 1000);
+                        arrivalEl.innerText = arrivalDate.toLocaleString('en-US', {
+                            year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true
+                        });
+                    } else {
+                        arrivalEl.innerText = '--';
+                    }
+                } else {
+                    arrivalEl.innerText = this.formatDuration(totalTravelHours);
+                }
+
+                const fuelStatusEl = document.getElementById('statFuelStatus');
+                if (currentFuel >= fuelRequired) {
+                    const surplus = currentFuel - fuelRequired;
+                    fuelStatusEl.innerHTML = `<span class="text-emerald-600"><i class="fa-solid fa-circle-check"></i> Sufficient · ${surplus.toFixed(2)} L surplus</span>`;
+                } else {
+                    const deficit = fuelRequired - currentFuel;
+                    fuelStatusEl.innerHTML = `<span class="text-rose-600"><i class="fa-solid fa-triangle-exclamation"></i> Refuel needed · ${deficit.toFixed(2)} L short</span>`;
+                }
+
+                document.getElementById('summaryDriving').innerText = this.formatDuration(drivingHours);
+                document.getElementById('summaryBreaks').innerText = this.formatDuration(schedule.breakHours);
+                document.getElementById('summaryDailyRest').innerText = this.formatDuration(schedule.dailyRestHours);
+                document.getElementById('summaryDelays').innerText = this.formatDuration(delayHours);
+                document.getElementById('summaryRouteStatus').innerText = `${loadLabel} · ${waypointCount} destination stop${waypointCount === 1 ? '' : 's'} · ${approximate ? 'Approximate distance' : 'Road route distance'}`;
+                
+                const modalSummary = [
+                    loadLabel,
+                    '',
+                    `Distance: ${totalDistanceKm.toFixed(2)} km${approximate ? ' (approximate)' : ''}`,
+                    `Route fuel consumption: ${baseRouteFuel.toFixed(2)} L`,
+                    extraFuel > 0 ? `Extra / Auxiliary fuel (PTO/Idling/Reefer): ${extraFuel.toFixed(2)} L` : null,
+                    `Total fuel required: ${fuelRequired.toFixed(2)} L (SAR ${fuelCost.toFixed(2)})`,
+                    `Fuel efficiency: ${fuelEfficiency.toFixed(2)} km/L`,
+                    `Driving time: ${this.formatDuration(drivingHours)}`,
+                    isTgaActive
+                        ? `Mandatory 45-min breaks: ${schedule.mandatoryBreaks} (${this.formatDuration(schedule.breakHours)})`
+                        : `Custom rest stops: ${this.formatDuration(schedule.customRestHours)}`,
+                    `Daily rest: ${this.formatDuration(schedule.dailyRestHours)}`,
+                    `Road delays: ${this.formatDuration(delayHours)}`,
+                    `Total mission duration: ${this.formatDuration(totalTravelHours)}`
+                ].filter(Boolean).join('\n');
+
+                this.showModal('Calculation Summary', modalSummary, approximate ? 'warning' : 'success');
+            }
+
+            showModal(title, message, type = "info") {
+                document.getElementById('modalTitle').innerText = title;
+                document.getElementById('modalMessage').innerText = message;
+                
+                const iconContainer = document.getElementById('modalIcon');
+                if (type === "success") {
+                    iconContainer.className = "w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto text-xl";
+                    iconContainer.innerHTML = '<i class="fa-solid fa-check"></i>';
+                } else if (type === "warning") {
+                    iconContainer.className = "w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto text-xl";
+                    iconContainer.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
+                } else if (type === "error") {
+                    iconContainer.className = "w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto text-xl";
+                    iconContainer.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i>';
+                } else {
+                    iconContainer.className = "w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mx-auto text-xl";
+                    iconContainer.innerHTML = '<i class="fa-solid fa-info"></i>';
+                }
+
+                document.getElementById('notificationModal').classList.remove('hidden');
+            }
+
+            closeModal() {
+                document.getElementById('notificationModal').classList.add('hidden');
+            }
+
+            openSettingsModal() {
+                const toggle = document.getElementById('livePreviewToggle');
+                if (toggle) {
+                    toggle.checked = this.livePreviewEnabled;
+                }
+                const kmlToggle = document.getElementById('saveKmlToggle');
+                if (kmlToggle) {
+                    kmlToggle.checked = this.saveKmlVisible;
+                }
+                const copyGmapsToggle = document.getElementById('copyGmapsToggle');
+                if (copyGmapsToggle) {
+                    copyGmapsToggle.checked = this.copyGmapsVisible;
+                }
+                const shareWhatsappToggle = document.getElementById('shareWhatsappToggle');
+                if (shareWhatsappToggle) {
+                    shareWhatsappToggle.checked = this.shareWhatsappVisible;
+                }
+                document.getElementById('settingsModal').classList.remove('hidden');
+            }
+
+            closeSettingsModal() {
+                document.getElementById('settingsModal').classList.add('hidden');
+            }
+
+            toggleLivePreviewSetting(enabled) {
+                this.livePreviewEnabled = enabled;
+                localStorage.setItem('livePreviewEnabled', enabled ? 'true' : 'false');
+                this.updateLivePreviewMarkers();
+            }
+
+            toggleSaveKmlSetting(enabled) {
+                this.saveKmlVisible = enabled;
+                localStorage.setItem('saveKmlVisible', enabled ? 'true' : 'false');
+                this.applyHeaderButtonVisibilities();
+            }
+
+            toggleCopyGmapsSetting(enabled) {
+                this.copyGmapsVisible = enabled;
+                localStorage.setItem('copyGmapsVisible', enabled ? 'true' : 'false');
+                this.applyHeaderButtonVisibilities();
+            }
+
+            toggleShareWhatsappSetting(enabled) {
+                this.shareWhatsappVisible = enabled;
+                localStorage.setItem('shareWhatsappVisible', enabled ? 'true' : 'false');
+                this.applyHeaderButtonVisibilities();
+            }
+
+            applyHeaderButtonVisibilities() {
+                const kmlBtn = document.getElementById('saveKmlHeaderBtn');
+                if (kmlBtn) {
+                    if (this.saveKmlVisible) {
+                        kmlBtn.classList.remove('hidden');
+                        kmlBtn.classList.add('flex');
+                    } else {
+                        kmlBtn.classList.add('hidden');
+                        kmlBtn.classList.remove('flex');
+                    }
+                }
+
+                const copyGmapsBtn = document.getElementById('copyGmapsHeaderBtn');
+                if (copyGmapsBtn) {
+                    if (this.copyGmapsVisible) {
+                        copyGmapsBtn.classList.remove('hidden');
+                        copyGmapsBtn.classList.add('flex');
+                    } else {
+                        copyGmapsBtn.classList.add('hidden');
+                        copyGmapsBtn.classList.remove('flex');
+                    }
+                }
+
+                const shareWhatsappBtn = document.getElementById('shareWhatsappHeaderBtn');
+                if (shareWhatsappBtn) {
+                    if (this.shareWhatsappVisible) {
+                        shareWhatsappBtn.classList.remove('hidden');
+                        shareWhatsappBtn.classList.add('flex');
+                    } else {
+                        shareWhatsappBtn.classList.add('hidden');
+                        shareWhatsappBtn.classList.remove('flex');
+                    }
+                }
+            }
+        }
+
+        let app;
+        window.onload = function() {
+            app = new LogisticsOpenStreetMapApp();
+        };
+    </script>
+    
+    <!-- Last Active Build: 2026-08-10 12:30:00 -->
+    <!-- Copyright © 2026 Bernando Jr Minguita. All rights reserved. -->
+    
+</body>
+</html>
