@@ -123,7 +123,7 @@ Breaks count = `max(0, ⌈driving hours ÷ 4.5⌉ − 1)`. With TGA OFF the app 
 
 ```text
 LogisticsRoute Pro/
-├── travel-timing-calculator.html   # The entire app — UI, map, engine & exports
+├── index.html   # The entire app — UI, map, engine & exports
 └── README.md                       # This documentation
 ```
 
