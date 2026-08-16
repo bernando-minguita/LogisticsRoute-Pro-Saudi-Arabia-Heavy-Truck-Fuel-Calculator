@@ -42,7 +42,7 @@ A pure **client-side** application for planning **multi-stop truck routes**, sim
 
 No build step — just open the file:
 
-1. Open **`travel-timing-calculator.html`** in any modern browser (double-click works — it runs from `file://`).
+1. Open **`index.html`** in any modern browser (double-click works — it runs from `file://`).
 2. Enter a start coordinate in `lat, lon` format, e.g. Riyadh: `24.7136, 46.6753`.
    - Easier: toggle **Click to Set: ON**, click the map — or use the **Jump to Coordinates** widget.
 3. Add destination stops with **+ Add Stop** (drag 🖐️ to re-order) and set an optional return point (leave empty for one-way).
